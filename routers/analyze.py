@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-from services.grain_analyzer import analyze_image
+from services.grain_analyzerV2 import analyze_image
 
 router = APIRouter(prefix="/api", tags=["Analysis"])
 
