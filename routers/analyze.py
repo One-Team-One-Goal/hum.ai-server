@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-from services.grain_analyzerV2 import analyze_image
+from services.grain_analyzerV2 import analyze_image, get_annotated_image
 
 router = APIRouter(prefix="/api", tags=["Analysis"])
 
@@ -33,6 +33,42 @@ async def analyze_grain_image(image: UploadFile = File(...)):
         result["modelVersion"] = "grain-physical-v1"
         result["filename"] = image.filename
 
+        return result
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@router.post("/analyze/physical/annotated", summary="Get bounding box coordinates for detected grains")
+async def analyze_grain_image_annotated(image: UploadFile = File(...)):
+    """Returns bounding box coordinates, labels, and confidence scores for hover effects on frontend."""
+    
+    # Check content type (may be None in some clients)
+    if image.content_type and not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image.")
+    
+    # Also check file extension as fallback
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+    file_ext = Path(image.filename).suffix.lower() if image.filename else ""
+    if not image.content_type and file_ext not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image.")
+    
+    temp_dir = tempfile.mkdtemp()
+    temp_path = Path(temp_dir) / image.filename
+
+    try:
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+
+        # Get bounding box data
+        result = get_annotated_image(str(temp_path))
+        
+        result["timestamp"] = datetime.utcnow().isoformat()
+        result["filename"] = image.filename
+        
         return result
     
     except Exception as e:

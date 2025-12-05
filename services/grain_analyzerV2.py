@@ -1,5 +1,7 @@
 from ultralytics import YOLO
 from pathlib import Path
+import cv2
+import io
 
 MODEL_PATH = Path(__file__).parent.parent / "models" / "grain_quality_detector.pt"
 
@@ -119,4 +121,60 @@ def analyze_image(image_path: str) -> dict:
             "clean": counts['Clean'],
             "foreignObject": counts['Foreign Object']
         }
+    }
+
+
+def get_annotated_image(image_path: str) -> dict:
+    """
+    Analyze a rice grain image and return bounding box coordinates with labels.
+    
+    Args:
+        image_path: Path to the image file to analyze
+        
+    Returns:
+        Dictionary containing image dimensions and list of detections with coordinates
+    """
+    model = get_model()
+    
+    # Run Inference
+    results = model.predict(image_path, conf=0.25, verbose=False)
+    result = results[0]
+    
+    # Get original image dimensions
+    img_height, img_width = result.orig_shape
+    
+    detections = []
+    
+    for box in result.boxes:
+        # Get bounding box coordinates (x1, y1, x2, y2)
+        x1, y1, x2, y2 = box.xyxy[0].tolist()
+        
+        # Calculate width and height
+        width = x2 - x1
+        height = y2 - y1
+        
+        # Get class info
+        class_id = int(box.cls[0])
+        class_name = model.names[class_id]
+        confidence = float(box.conf[0])
+        
+        detections.append({
+            "id": len(detections) + 1,
+            "label": class_name,
+            "confidence": round(confidence, 2),
+            "bbox": {
+                "x": round(x1, 2),
+                "y": round(y1, 2),
+                "width": round(width, 2),
+                "height": round(height, 2),
+                "x2": round(x2, 2),
+                "y2": round(y2, 2)
+            }
+        })
+    
+    return {
+        "imageWidth": img_width,
+        "imageHeight": img_height,
+        "totalDetections": len(detections),
+        "detections": detections
     }
