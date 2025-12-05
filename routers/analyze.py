@@ -10,7 +10,14 @@ router = APIRouter(prefix="/api", tags=["Analysis"])
 
 @router.post("/analyze/physical", summary="Analyze rice grain image for physical grading")
 async def analyze_grain_image(image: UploadFile = File(...)):
-    if not image.content_type.startswith("image/"):
+    # Check content type (may be None in some clients)
+    if image.content_type and not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image.")
+    
+    # Also check file extension as fallback
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+    file_ext = Path(image.filename).suffix.lower() if image.filename else ""
+    if not image.content_type and file_ext not in allowed_extensions:
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image.")
     
     temp_dir = tempfile.mkdtemp()

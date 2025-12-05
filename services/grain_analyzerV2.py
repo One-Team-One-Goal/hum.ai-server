@@ -1,8 +1,16 @@
 from ultralytics import YOLO
 from pathlib import Path
 
-MODEL_PATH = Path(__file__).parent.parent / "models" / "grain_physical.pt"
-model = YOLO(str(MODEL_PATH))
+MODEL_PATH = Path(__file__).parent.parent / "models" / "grain_quality_detector.pt"
+
+# Lazy load model to prevent memory issues at startup
+_model = None
+
+def get_model():
+    global _model
+    if _model is None:
+        _model = YOLO(str(MODEL_PATH))
+    return _model
 
 
 def analyze_image(image_path: str) -> dict:
@@ -15,6 +23,8 @@ def analyze_image(image_path: str) -> dict:
     Returns:
         Dictionary containing grain counts, percentages, and NCT grade
     """
+    model = get_model()
+    
     # Run Inference
     results = model.predict(image_path, conf=0.25, verbose=False)
     result = results[0]
